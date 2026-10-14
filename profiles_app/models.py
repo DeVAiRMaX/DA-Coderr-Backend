@@ -16,7 +16,9 @@ class UserProfile(models.Model):
         User, on_delete=models.CASCADE, related_name='profile'
     )
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    file = models.FileField(upload_to='profile_pictures/', blank=True, null=True)
+    file = models.FileField(
+        upload_to='profile_pictures/', blank=True, null=True
+    )
     location = models.CharField(max_length=100, blank=True, default='')
     tel = models.CharField(max_length=30, blank=True, default='')
     description = models.TextField(blank=True, default='')
