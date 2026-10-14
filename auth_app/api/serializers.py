@@ -1,3 +1,4 @@
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
@@ -38,3 +39,19 @@ class RegistrationSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
         UserProfile.objects.create(user=user, type=profile_type)
         return user
+
+
+class LoginSerializer(serializers.Serializer):
+    """Checks username and password and returns the matching user."""
+
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        user = authenticate(
+            username=attrs['username'], password=attrs['password']
+        )
+        if user is None:
+            raise serializers.ValidationError('Invalid username or password.')
+        attrs['user'] = user
+        return attrs
