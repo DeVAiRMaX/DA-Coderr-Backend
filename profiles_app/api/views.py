@@ -3,7 +3,11 @@ from rest_framework.permissions import IsAuthenticated
 
 from profiles_app.models import UserProfile
 from .permissions import IsProfileOwnerOrReadOnly
-from .serializers import ProfileDetailSerializer
+from .serializers import (
+    BusinessProfileListSerializer,
+    CustomerProfileListSerializer,
+    ProfileDetailSerializer,
+)
 
 
 class ProfileDetailView(generics.RetrieveUpdateAPIView):
@@ -15,3 +19,21 @@ class ProfileDetailView(generics.RetrieveUpdateAPIView):
     lookup_field = 'user'
     lookup_url_kwarg = 'pk'
     http_method_names = ['get', 'patch', 'options']
+
+
+class BusinessProfileListView(generics.ListAPIView):
+    """Lists the profiles of all business users."""
+
+    queryset = UserProfile.objects.filter(
+        type=UserProfile.BUSINESS
+    ).select_related('user')
+    serializer_class = BusinessProfileListSerializer
+
+
+class CustomerProfileListView(generics.ListAPIView):
+    """Lists the profiles of all customers."""
+
+    queryset = UserProfile.objects.filter(
+        type=UserProfile.CUSTOMER
+    ).select_related('user')
+    serializer_class = CustomerProfileListSerializer
