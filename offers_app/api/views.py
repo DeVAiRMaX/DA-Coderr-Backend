@@ -1,9 +1,9 @@
 from rest_framework import generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from offers_app.models import Offer
+from offers_app.models import Offer, OfferDetail
 from .permissions import IsBusinessUser
-from .serializers import OfferWriteSerializer
+from .serializers import OfferDetailSerializer, OfferWriteSerializer
 
 
 class OfferListCreateView(generics.ListCreateAPIView):
@@ -19,3 +19,10 @@ class OfferListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class OfferDetailRetrieveView(generics.RetrieveAPIView):
+    """Shows a single offer package."""
+
+    queryset = OfferDetail.objects.all()
+    serializer_class = OfferDetailSerializer
