@@ -1,8 +1,10 @@
 from django.db.models import Min
-from rest_framework import generics
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters, generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from offers_app.models import Offer, OfferDetail
+from .filters import OfferFilter
 from .pagination import OfferPagination
 from .permissions import IsBusinessUser
 from .serializers import (
@@ -27,6 +29,12 @@ class OfferListCreateView(generics.ListCreateAPIView):
     """Lists all offers (public) and lets business users create new ones."""
 
     pagination_class = OfferPagination
+    filter_backends = [
+        DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter
+    ]
+    filterset_class = OfferFilter
+    search_fields = ['title', 'description']
+    ordering_fields = ['updated_at', 'min_price']
 
     def get_queryset(self):
         return get_offer_queryset()
