@@ -153,4 +153,6 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # Prices are returned as numbers (100) instead of strings ("100.00")
+    'COERCE_DECIMAL_TO_STRING': False,
 }
