@@ -10,6 +10,7 @@ from .permissions import IsBusinessUser
 from .serializers import (
     OfferDetailSerializer,
     OfferListSerializer,
+    OfferRetrieveSerializer,
     OfferWriteSerializer,
 )
 
@@ -51,6 +52,15 @@ class OfferListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class OfferRetrieveUpdateDestroyView(generics.RetrieveAPIView):
+    """Shows a single offer."""
+
+    serializer_class = OfferRetrieveSerializer
+
+    def get_queryset(self):
+        return get_offer_queryset()
 
 
 class OfferDetailRetrieveView(generics.RetrieveAPIView):

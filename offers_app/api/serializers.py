@@ -59,6 +59,16 @@ class OfferListSerializer(serializers.ModelSerializer):
         ]
 
 
+class OfferRetrieveSerializer(OfferListSerializer):
+    """Single offer. Same as in the list, but without user_details."""
+
+    class Meta(OfferListSerializer.Meta):
+        fields = [
+            'id', 'user', 'title', 'image', 'description', 'created_at',
+            'updated_at', 'details', 'min_price', 'min_delivery_time',
+        ]
+
+
 class OfferWriteSerializer(serializers.ModelSerializer):
     """Creates an offer together with its three packages."""
 
