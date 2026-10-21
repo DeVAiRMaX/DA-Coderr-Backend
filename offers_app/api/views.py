@@ -54,13 +54,18 @@ class OfferListCreateView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
-class OfferRetrieveUpdateDestroyView(generics.RetrieveAPIView):
-    """Shows a single offer."""
+class OfferRetrieveUpdateDestroyView(generics.RetrieveUpdateAPIView):
+    """Shows and updates a single offer."""
 
-    serializer_class = OfferRetrieveSerializer
+    http_method_names = ['get', 'patch', 'options']
 
     def get_queryset(self):
         return get_offer_queryset()
+
+    def get_serializer_class(self):
+        if self.request.method == 'PATCH':
+            return OfferWriteSerializer
+        return OfferRetrieveSerializer
 
 
 class OfferDetailRetrieveView(generics.RetrieveAPIView):
