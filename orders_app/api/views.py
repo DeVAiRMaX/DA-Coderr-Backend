@@ -1,11 +1,14 @@
+from django.contrib.auth.models import User
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from offers_app.models import OfferDetail
 from orders_app.models import Order
+from profiles_app.models import UserProfile
 from .permissions import IsCustomerUser, IsOrderBusinessUser
 from .serializers import (
     OrderCreateSerializer,
@@ -56,3 +59,34 @@ class OrderUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == 'DELETE':
             return [IsAuthenticated(), IsAdminUser()]
         return [IsAuthenticated(), IsOrderBusinessUser()]
+
+
+def count_orders_of_business_user(business_user_id, order_status):
+    """Counts the orders of a business user with the given status.
+    Raises 404 if there is no business user with this id."""
+    business_user = get_object_or_404(
+        User, pk=business_user_id, profile__type=UserProfile.BUSINESS
+    )
+    return Order.objects.filter(
+        business_user=business_user, status=order_status
+    ).count()
+
+
+class OrderCountView(APIView):
+    """Number of orders in progress of a business user."""
+
+    def get(self, request, business_user_id):
+        count = count_orders_of_business_user(
+            business_user_id, Order.IN_PROGRESS
+        )
+        return Response({'order_count': count})
+
+
+class CompletedOrderCountView(APIView):
+    """Number of completed orders of a business user."""
+
+    def get(self, request, business_user_id):
+        count = count_orders_of_business_user(
+            business_user_id, Order.COMPLETED
+        )
+        return Response({'completed_order_count': count})
