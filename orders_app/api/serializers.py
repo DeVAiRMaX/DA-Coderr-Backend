@@ -15,6 +15,29 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
 
 
+class OrderStatusUpdateSerializer(OrderSerializer):
+    """Only the status of an order can be changed."""
+
+    status = serializers.ChoiceField(choices=Order.STATUS_CHOICES)
+
+    class Meta(OrderSerializer.Meta):
+        read_only_fields = [
+            field for field in OrderSerializer.Meta.fields
+            if field != 'status'
+        ]
+
+    def validate(self, attrs):
+        other_fields = set(self.initial_data) - {'status'}
+        if other_fields:
+            raise serializers.ValidationError(
+                f'Only the status can be changed, not: '
+                f'{", ".join(sorted(other_fields))}.'
+            )
+        if 'status' not in attrs:
+            raise serializers.ValidationError({'status': 'Status is required.'})
+        return attrs
+
+
 class OrderCreateSerializer(serializers.Serializer):
     """Creates an order from an offer package (OfferDetail)."""
 

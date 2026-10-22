@@ -6,8 +6,12 @@ from rest_framework.response import Response
 
 from offers_app.models import OfferDetail
 from orders_app.models import Order
-from .permissions import IsCustomerUser
-from .serializers import OrderCreateSerializer, OrderSerializer
+from .permissions import IsCustomerUser, IsOrderBusinessUser
+from .serializers import (
+    OrderCreateSerializer,
+    OrderSerializer,
+    OrderStatusUpdateSerializer,
+)
 
 
 class OrderListCreateView(generics.ListCreateAPIView):
@@ -38,3 +42,12 @@ class OrderListCreateView(generics.ListCreateAPIView):
         )
         data = OrderSerializer(order).data
         return Response(data, status=status.HTTP_201_CREATED)
+
+
+class OrderUpdateDestroyView(generics.UpdateAPIView):
+    """Lets the business user of an order change its status."""
+
+    queryset = Order.objects.all()
+    serializer_class = OrderStatusUpdateSerializer
+    permission_classes = [IsAuthenticated & IsOrderBusinessUser]
+    http_method_names = ['patch', 'options']
