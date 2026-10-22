@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from offers_app.models import Offer, OfferDetail
 from .filters import OfferFilter
 from .pagination import OfferPagination
-from .permissions import IsBusinessUser
+from .permissions import IsBusinessUser, IsOfferOwnerOrReadOnly
 from .serializers import (
     OfferDetailSerializer,
     OfferListSerializer,
@@ -57,6 +57,7 @@ class OfferListCreateView(generics.ListCreateAPIView):
 class OfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """Shows, updates and deletes a single offer."""
 
+    permission_classes = [IsAuthenticated & IsOfferOwnerOrReadOnly]
     http_method_names = ['get', 'patch', 'delete', 'options']
 
     def get_queryset(self):
