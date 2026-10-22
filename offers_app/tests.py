@@ -1,6 +1,10 @@
 import copy
+import shutil
+import tempfile
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -24,6 +28,8 @@ OFFER_DATA = {
     ],
 }
 
+TEMP_MEDIA_ROOT = tempfile.mkdtemp()
+
 
 def create_user_with_profile(username, profile_type):
     user = User.objects.create_user(username, f'{username}@mail.de', 'pw')
@@ -40,6 +46,14 @@ def create_offer(user, title='Offer', price=100, days=5, description=''):
         offer=offer, title='Basic', revisions=1, delivery_time_in_days=days,
         price=price, features=['Logo'], offer_type='basic',
     )
+    return offer
+
+
+def create_full_offer(user):
+    """Creates an offer with all three details from OFFER_DATA."""
+    offer = Offer.objects.create(user=user, title=OFFER_DATA['title'])
+    for detail_data in OFFER_DATA['details']:
+        OfferDetail.objects.create(offer=offer, **detail_data)
     return offer
 
 
@@ -213,4 +227,137 @@ class OfferDetailRetrieveTests(APITestCase):
         self.client.force_authenticate(self.business)
         url = reverse('offerdetail-detail', kwargs={'pk': 9999})
         response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class OfferRetrieveTests(APITestCase):
+
+    def setUp(self):
+        self.business = create_user_with_profile('biz', UserProfile.BUSINESS)
+        self.customer = create_user_with_profile('cus', UserProfile.CUSTOMER)
+        self.offer = create_full_offer(self.business)
+        self.url = reverse('offer-detail', kwargs={'pk': self.offer.id})
+
+    def test_get_offer_returns_details_and_min_values(self):
+        self.client.force_authenticate(self.customer)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user'], self.business.id)
+        self.assertEqual(len(response.data['details']), 3)
+        self.assertEqual(response.data['min_price'], 100)
+        self.assertEqual(response.data['min_delivery_time'], 5)
+        self.assertNotIn('user_details', response.data)
+
+    def test_get_offer_requires_authentication(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_unknown_offer_returns_404(self):
+        self.client.force_authenticate(self.customer)
+        url = reverse('offer-detail', kwargs={'pk': 9999})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
+class OfferUpdateTests(APITestCase):
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.business = create_user_with_profile('biz', UserProfile.BUSINESS)
+        self.other = create_user_with_profile('other', UserProfile.BUSINESS)
+        self.offer = create_full_offer(self.business)
+        self.url = reverse('offer-detail', kwargs={'pk': self.offer.id})
+        self.client.force_authenticate(self.business)
+
+    def test_patch_title_only(self):
+        response = self.client.patch(self.url, {'title': 'New'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['title'], 'New')
+        self.assertEqual(len(response.data['details']), 3)
+
+    def test_patch_single_detail_keeps_its_id(self):
+        basic = self.offer.details.get(offer_type='basic')
+        data = {'details': [{'price': 120, 'offer_type': 'basic'}]}
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        basic.refresh_from_db()
+        self.assertEqual(basic.price, 120)
+        self.assertEqual(basic.title, 'Basic')
+        self.assertEqual(response.data['details'][0]['id'], basic.id)
+
+    def test_patch_detail_without_offer_type_fails(self):
+        data = {'details': [{'price': 120}]}
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_detail_with_unknown_offer_type_fails(self):
+        self.offer.details.filter(offer_type='premium').delete()
+        data = {'details': [{'price': 1, 'offer_type': 'premium'}]}
+        response = self.client.patch(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_patch_uploads_image(self):
+        image = SimpleUploadedFile('a.png', b'img', content_type='image/png')
+        response = self.client.patch(
+            self.url, {'image': image}, format='multipart'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('offer_images/a', response.data['image'])
+
+    def test_patch_by_other_user_is_forbidden(self):
+        self.client.force_authenticate(self.other)
+        response = self.client.patch(self.url, {'title': 'x'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_patch_requires_authentication(self):
+        self.client.force_authenticate(None)
+        response = self.client.patch(self.url, {'title': 'x'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_patch_unknown_offer_returns_404(self):
+        url = reverse('offer-detail', kwargs={'pk': 9999})
+        response = self.client.patch(url, {'title': 'x'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_put_is_not_allowed(self):
+        response = self.client.put(self.url, OFFER_DATA, format='json')
+        self.assertEqual(
+            response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED
+        )
+
+
+class OfferDeleteTests(APITestCase):
+
+    def setUp(self):
+        self.business = create_user_with_profile('biz', UserProfile.BUSINESS)
+        self.other = create_user_with_profile('other', UserProfile.BUSINESS)
+        self.offer = create_full_offer(self.business)
+        self.url = reverse('offer-detail', kwargs={'pk': self.offer.id})
+
+    def test_owner_can_delete_offer_and_details(self):
+        self.client.force_authenticate(self.business)
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Offer.objects.exists())
+        self.assertFalse(OfferDetail.objects.exists())
+
+    def test_other_user_cannot_delete_offer(self):
+        self.client.force_authenticate(self.other)
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Offer.objects.exists())
+
+    def test_delete_requires_authentication(self):
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_delete_unknown_offer_returns_404(self):
+        self.client.force_authenticate(self.business)
+        url = reverse('offer-detail', kwargs={'pk': 9999})
+        response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
