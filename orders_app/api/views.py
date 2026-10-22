@@ -1,7 +1,7 @@
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from offers_app.models import OfferDetail
@@ -44,10 +44,15 @@ class OrderListCreateView(generics.ListCreateAPIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
 
-class OrderUpdateDestroyView(generics.UpdateAPIView):
-    """Lets the business user of an order change its status."""
+class OrderUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """The business user of an order can change its status,
+    only admins (staff) can delete orders."""
 
     queryset = Order.objects.all()
     serializer_class = OrderStatusUpdateSerializer
-    permission_classes = [IsAuthenticated & IsOrderBusinessUser]
-    http_method_names = ['patch', 'options']
+    http_method_names = ['patch', 'delete', 'options']
+
+    def get_permissions(self):
+        if self.request.method == 'DELETE':
+            return [IsAuthenticated(), IsAdminUser()]
+        return [IsAuthenticated(), IsOrderBusinessUser()]
