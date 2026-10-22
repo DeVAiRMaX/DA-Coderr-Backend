@@ -34,7 +34,9 @@ class OrderStatusUpdateSerializer(OrderSerializer):
                 f'{", ".join(sorted(other_fields))}.'
             )
         if 'status' not in attrs:
-            raise serializers.ValidationError({'status': 'Status is required.'})
+            raise serializers.ValidationError(
+                {'status': 'Status is required.'}
+            )
         return attrs
 
 
