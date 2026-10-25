@@ -22,3 +22,21 @@ class ReviewSerializer(serializers.ModelSerializer):
                 'Reviews can only be given to business users.'
             )
         return value
+
+
+class ReviewUpdateSerializer(ReviewSerializer):
+    """Only rating and description of a review can be changed."""
+
+    EDITABLE_FIELDS = {'rating', 'description'}
+
+    class Meta(ReviewSerializer.Meta):
+        read_only_fields = ['business_user', 'reviewer']
+
+    def validate(self, attrs):
+        other_fields = set(self.initial_data) - self.EDITABLE_FIELDS
+        if other_fields:
+            raise serializers.ValidationError(
+                f'Only rating and description can be changed, not: '
+                f'{", ".join(sorted(other_fields))}.'
+            )
+        return attrs

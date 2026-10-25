@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 
 from reviews_app.models import Review
 from .filters import ReviewFilter
-from .permissions import IsCustomerUser
-from .serializers import ReviewSerializer
+from .permissions import IsCustomerUser, IsReviewer
+from .serializers import ReviewSerializer, ReviewUpdateSerializer
 
 
 class ReviewListCreateView(generics.ListCreateAPIView):
@@ -34,3 +34,12 @@ class ReviewListCreateView(generics.ListCreateAPIView):
                 'You have already reviewed this business user.'
             )
         serializer.save(reviewer=self.request.user)
+
+
+class ReviewUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """Lets the author of a review change or delete it."""
+
+    queryset = Review.objects.all()
+    serializer_class = ReviewUpdateSerializer
+    permission_classes = [IsAuthenticated & IsReviewer]
+    http_method_names = ['patch', 'delete', 'options']
