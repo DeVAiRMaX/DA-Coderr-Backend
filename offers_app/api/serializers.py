@@ -79,6 +79,7 @@ class OfferWriteSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'image', 'description', 'details']
 
     def validate_details(self, value):
+        """On POST exactly one basic, standard and premium detail is needed."""
         if self.partial:
             return self.validate_partial_details(value)
         offer_types = [detail['offer_type'] for detail in value]
@@ -106,6 +107,7 @@ class OfferWriteSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
+        """Creates the offer first, then its three details."""
         details_data = validated_data.pop('details')
         offer = Offer.objects.create(**validated_data)
         for detail_data in details_data:
@@ -113,6 +115,7 @@ class OfferWriteSerializer(serializers.ModelSerializer):
         return offer
 
     def update(self, instance, validated_data):
+        """Updates the offer fields and every sent detail."""
         details_data = validated_data.pop('details', [])
         instance = super().update(instance, validated_data)
         for detail_data in details_data:

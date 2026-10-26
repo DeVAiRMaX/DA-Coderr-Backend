@@ -46,11 +46,13 @@ class OfferListCreateView(generics.ListCreateAPIView):
         return OfferListSerializer
 
     def get_permissions(self):
+        """Reading is public, creating is only for business users."""
         if self.request.method == 'POST':
             return [IsAuthenticated(), IsBusinessUser()]
         return [AllowAny()]
 
     def perform_create(self, serializer):
+        """The logged in user always becomes the creator of the offer."""
         serializer.save(user=self.request.user)
 
 
