@@ -22,11 +22,13 @@ class RegistrationSerializer(serializers.ModelSerializer):
         }
 
     def validate_email(self, value):
+        """Every email address may only be used once."""
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError('This email is already in use.')
         return value
 
     def validate(self, attrs):
+        """Both passwords have to be the same."""
         if attrs['password'] != attrs['repeated_password']:
             raise serializers.ValidationError(
                 {'repeated_password': 'Passwords do not match.'}
@@ -34,6 +36,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        """Creates the user (with hashed password) and its profile."""
         validated_data.pop('repeated_password')
         profile_type = validated_data.pop('type')
         user = User.objects.create_user(**validated_data)
@@ -48,6 +51,7 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
+        """Adds the authenticated user to the validated data."""
         user = authenticate(
             username=attrs['username'], password=attrs['password']
         )
