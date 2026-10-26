@@ -27,6 +27,7 @@ class OrderStatusUpdateSerializer(OrderSerializer):
         ]
 
     def validate(self, attrs):
+        """Rejects every field except status (the docs want a 400 here)."""
         other_fields = set(self.initial_data) - {'status'}
         if other_fields:
             raise serializers.ValidationError(

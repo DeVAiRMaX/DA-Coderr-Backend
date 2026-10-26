@@ -24,17 +24,20 @@ class OrderListCreateView(generics.ListCreateAPIView):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
+        """Only orders where the user is customer or business partner."""
         user = self.request.user
         return Order.objects.filter(
             Q(customer_user=user) | Q(business_user=user)
         )
 
     def get_permissions(self):
+        """Every logged in user may read, only customers may order."""
         if self.request.method == 'POST':
             return [IsAuthenticated(), IsCustomerUser()]
         return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
+        """Takes an offer_detail_id and answers with the full order."""
         serializer = OrderCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         offer_detail = get_object_or_404(
@@ -56,6 +59,7 @@ class OrderUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     http_method_names = ['patch', 'delete', 'options']
 
     def get_permissions(self):
+        """PATCH for the order's business user, DELETE for staff only."""
         if self.request.method == 'DELETE':
             return [IsAuthenticated(), IsAdminUser()]
         return [IsAuthenticated(), IsOrderBusinessUser()]
