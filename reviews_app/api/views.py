@@ -20,11 +20,13 @@ class ReviewListCreateView(generics.ListCreateAPIView):
     ordering_fields = ['updated_at', 'rating']
 
     def get_permissions(self):
+        """Every logged in user may read, only customers may review."""
         if self.request.method == 'POST':
             return [IsAuthenticated(), IsCustomerUser()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
+        """A second review for the same business user is answered with 403."""
         business_user = serializer.validated_data['business_user']
         already_reviewed = Review.objects.filter(
             business_user=business_user, reviewer=self.request.user

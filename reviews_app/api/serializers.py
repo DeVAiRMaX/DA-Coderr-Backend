@@ -16,6 +16,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         read_only_fields = ['reviewer']
 
     def validate_business_user(self, value):
+        """Only business users can be reviewed."""
         profile = getattr(value, 'profile', None)
         if profile is None or profile.type != UserProfile.BUSINESS:
             raise serializers.ValidationError(
@@ -33,6 +34,7 @@ class ReviewUpdateSerializer(ReviewSerializer):
         read_only_fields = ['business_user', 'reviewer']
 
     def validate(self, attrs):
+        """Rejects every field except rating and description with a 400."""
         other_fields = set(self.initial_data) - self.EDITABLE_FIELDS
         if other_fields:
             raise serializers.ValidationError(
