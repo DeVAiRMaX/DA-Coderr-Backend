@@ -26,6 +26,7 @@ class ProfileDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ['user', 'type', 'created_at']
 
     def validate_email(self, value):
+        """The email must be unique, but keeping your own email is fine."""
         other_users = User.objects.exclude(pk=self.instance.user.pk)
         if other_users.filter(email=value).exists():
             raise serializers.ValidationError('This email is already in use.')
