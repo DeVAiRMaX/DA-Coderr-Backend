@@ -148,7 +148,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # Django REST Framework
-# Every endpoint requires a token by default; public endpoints opt out explicitly.
+# Every endpoint requires a token by default,
+# public endpoints opt out explicitly.
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
