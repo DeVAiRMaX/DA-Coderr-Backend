@@ -1,15 +1,19 @@
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, status
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework import mixins, status, viewsets
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from offers_app.models import OfferDetail
 from orders_app.models import Order
 from profiles_app.models import UserProfile
-from .permissions import IsCustomerUser, IsOrderBusinessUser
+from .permissions import (
+    IsCustomerUserToCreate,
+    IsOrderBusinessUserToUpdate,
+    IsStaffToDelete,
+)
 from .serializers import (
     OrderCreateSerializer,
     OrderSerializer,
@@ -17,24 +21,38 @@ from .serializers import (
 )
 
 
-class OrderListCreateView(generics.ListCreateAPIView):
-    """Lists the orders the user is part of, as customer or as business.
-    Customers can create new orders."""
+class OrderViewSet(mixins.ListModelMixin,
+                   mixins.CreateModelMixin,
+                   mixins.UpdateModelMixin,
+                   mixins.DestroyModelMixin,
+                   viewsets.GenericViewSet):
+    """Customers create orders, the business user of an order changes
+    its status and only admins (staff) can delete orders."""
 
+    queryset = Order.objects.all()
     serializer_class = OrderSerializer
+    permission_classes = [
+        IsAuthenticated
+        & IsCustomerUserToCreate
+        & IsStaffToDelete
+        & IsOrderBusinessUserToUpdate
+    ]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'options']
 
     def get_queryset(self):
-        """Only orders where the user is customer or business partner."""
-        user = self.request.user
-        return Order.objects.filter(
-            Q(customer_user=user) | Q(business_user=user)
-        )
+        """The list only shows orders the user is customer or business of."""
+        if self.action == 'list':
+            user = self.request.user
+            return Order.objects.filter(
+                Q(customer_user=user) | Q(business_user=user)
+            )
+        return super().get_queryset()
 
-    def get_permissions(self):
-        """Every logged in user may read, only customers may order."""
-        if self.request.method == 'POST':
-            return [IsAuthenticated(), IsCustomerUser()]
-        return [IsAuthenticated()]
+    def get_serializer_class(self):
+        """On PATCH only the status can be changed."""
+        if self.action == 'partial_update':
+            return OrderStatusUpdateSerializer
+        return OrderSerializer
 
     def create(self, request, *args, **kwargs):
         """Takes an offer_detail_id and answers with the full order."""
@@ -48,21 +66,6 @@ class OrderListCreateView(generics.ListCreateAPIView):
         )
         data = OrderSerializer(order).data
         return Response(data, status=status.HTTP_201_CREATED)
-
-
-class OrderUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    """The business user of an order can change its status,
-    only admins (staff) can delete orders."""
-
-    queryset = Order.objects.all()
-    serializer_class = OrderStatusUpdateSerializer
-    http_method_names = ['patch', 'delete', 'options']
-
-    def get_permissions(self):
-        """PATCH for the order's business user, DELETE for staff only."""
-        if self.request.method == 'DELETE':
-            return [IsAuthenticated(), IsAdminUser()]
-        return [IsAuthenticated(), IsOrderBusinessUser()]
 
 
 def count_orders_of_business_user(business_user_id, order_status):
@@ -79,6 +82,8 @@ def count_orders_of_business_user(business_user_id, order_status):
 class OrderCountView(APIView):
     """Number of orders in progress of a business user."""
 
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, business_user_id):
         count = count_orders_of_business_user(
             business_user_id, Order.IN_PROGRESS
@@ -88,6 +93,8 @@ class OrderCountView(APIView):
 
 class CompletedOrderCountView(APIView):
     """Number of completed orders of a business user."""
+
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, business_user_id):
         count = count_orders_of_business_user(
