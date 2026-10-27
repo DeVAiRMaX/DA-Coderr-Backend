@@ -3,10 +3,12 @@ from rest_framework.permissions import BasePermission
 from profiles_app.models import UserProfile
 
 
-class IsCustomerUser(BasePermission):
-    """Only users with a customer profile get access."""
+class IsCustomerUserToCreate(BasePermission):
+    """Only users with a customer profile may create reviews."""
 
     def has_permission(self, request, view):
+        if view.action != 'create':
+            return True
         profile = getattr(request.user, 'profile', None)
         return profile is not None and profile.type == UserProfile.CUSTOMER
 

@@ -1,9 +1,11 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import SimpleRouter
 
-from .views import ReviewListCreateView, ReviewUpdateDestroyView
+from .views import ReviewViewSet
+
+router = SimpleRouter()
+router.register('reviews', ReviewViewSet, basename='review')
 
 urlpatterns = [
-    path('reviews/', ReviewListCreateView.as_view(), name='review-list'),
-    path('reviews/<int:pk>/', ReviewUpdateDestroyView.as_view(),
-         name='review-detail'),
+    path('', include(router.urls)),
 ]
