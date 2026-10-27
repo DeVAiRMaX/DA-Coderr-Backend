@@ -1,12 +1,16 @@
 from django.db.models import Min
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, generics
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework import filters, mixins, viewsets
+from rest_framework.permissions import IsAuthenticated
 
 from offers_app.models import Offer, OfferDetail
 from .filters import OfferFilter
 from .pagination import OfferPagination
-from .permissions import IsBusinessUser, IsOfferOwnerOrReadOnly
+from .permissions import (
+    IsAuthenticatedOrListOnly,
+    IsBusinessUserToCreate,
+    IsOfferOwnerOrReadOnly,
+)
 from .serializers import (
     OfferDetailSerializer,
     OfferListSerializer,
@@ -15,20 +19,25 @@ from .serializers import (
 )
 
 
-def get_offer_queryset():
-    """All offers with their cheapest price and fastest delivery time."""
+class OfferViewSet(viewsets.ModelViewSet):
+    """Offers with their cheapest price and fastest delivery time.
+    The list is public, creating is only for business users and
+    only the creator may change or delete an offer."""
+
     # order_by is needed here: Django ignores Meta.ordering after annotate()
-    return Offer.objects.select_related('user').prefetch_related(
+    queryset = Offer.objects.select_related('user').prefetch_related(
         'details'
     ).annotate(
         min_price=Min('details__price'),
         min_delivery_time=Min('details__delivery_time_in_days'),
     ).order_by('-updated_at')
-
-
-class OfferListCreateView(generics.ListCreateAPIView):
-    """Lists all offers (public) and lets business users create new ones."""
-
+    serializer_class = OfferListSerializer
+    permission_classes = [
+        IsAuthenticatedOrListOnly
+        & IsBusinessUserToCreate
+        & IsOfferOwnerOrReadOnly
+    ]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'options']
     pagination_class = OfferPagination
     filter_backends = [
         DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter
@@ -37,42 +46,22 @@ class OfferListCreateView(generics.ListCreateAPIView):
     search_fields = ['title', 'description']
     ordering_fields = ['updated_at', 'min_price']
 
-    def get_queryset(self):
-        return get_offer_queryset()
-
     def get_serializer_class(self):
-        if self.request.method == 'POST':
+        """Each action shows the offer in the form the API docs describe."""
+        if self.action in ['create', 'partial_update']:
             return OfferWriteSerializer
+        if self.action == 'retrieve':
+            return OfferRetrieveSerializer
         return OfferListSerializer
-
-    def get_permissions(self):
-        """Reading is public, creating is only for business users."""
-        if self.request.method == 'POST':
-            return [IsAuthenticated(), IsBusinessUser()]
-        return [AllowAny()]
 
     def perform_create(self, serializer):
         """The logged in user always becomes the creator of the offer."""
         serializer.save(user=self.request.user)
 
 
-class OfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    """Shows, updates and deletes a single offer."""
-
-    permission_classes = [IsAuthenticated & IsOfferOwnerOrReadOnly]
-    http_method_names = ['get', 'patch', 'delete', 'options']
-
-    def get_queryset(self):
-        return get_offer_queryset()
-
-    def get_serializer_class(self):
-        if self.request.method == 'PATCH':
-            return OfferWriteSerializer
-        return OfferRetrieveSerializer
-
-
-class OfferDetailRetrieveView(generics.RetrieveAPIView):
+class OfferDetailViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """Shows a single offer package."""
 
     queryset = OfferDetail.objects.all()
     serializer_class = OfferDetailSerializer
+    permission_classes = [IsAuthenticated]

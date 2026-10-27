@@ -3,10 +3,21 @@ from rest_framework.permissions import SAFE_METHODS, BasePermission
 from profiles_app.models import UserProfile
 
 
-class IsBusinessUser(BasePermission):
-    """Only users with a business profile get access."""
+class IsAuthenticatedOrListOnly(BasePermission):
+    """The offer list is public, everything else needs a login."""
 
     def has_permission(self, request, view):
+        if view.action == 'list':
+            return True
+        return request.user.is_authenticated
+
+
+class IsBusinessUserToCreate(BasePermission):
+    """Only users with a business profile may create offers."""
+
+    def has_permission(self, request, view):
+        if view.action != 'create':
+            return True
         profile = getattr(request.user, 'profile', None)
         return profile is not None and profile.type == UserProfile.BUSINESS
 
