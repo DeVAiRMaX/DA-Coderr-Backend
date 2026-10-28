@@ -72,6 +72,48 @@ Open the frontend with VS Code **Live Server** (default: `http://127.0.0.1:5500`
 This origin is allowed via CORS in `core/settings.py`.
 If your Live Server runs on another port, add it to `CORS_ALLOWED_ORIGINS`.
 
+## Project Structure
+
+| App             | Responsibility                                  |
+|-----------------|-------------------------------------------------|
+| `core`          | Settings and central URL routing                |
+| `auth_app`      | Registration, login, guest accounts             |
+| `profiles_app`  | User profiles (customer / business)             |
+| `offers_app`    | Offers and their three packages (offer details) |
+| `orders_app`    | Orders and order counts                         |
+| `reviews_app`   | Reviews of business users                       |
+| `base_info_app` | Platform statistics                             |
+
+Every app keeps its API code (serializers, views, urls, permissions) in an `api/` folder.
+
+## API Endpoints
+
+All endpoints are prefixed with `/api/`. Authentication uses a token
+(`Authorization: Token <token>`), which is returned by registration and login.
+
+| Method                 | Endpoint                                    | Access                                     |
+|------------------------|---------------------------------------------|--------------------------------------------|
+| POST                   | `registration/`                             | public                                     |
+| POST                   | `login/`                                    | public                                     |
+| GET, PATCH             | `profile/{user_id}/`                        | authenticated, PATCH only own profile      |
+| GET                    | `profiles/business/`                        | authenticated                              |
+| GET                    | `profiles/customer/`                        | authenticated                              |
+| GET                    | `offers/`                                   | public                                     |
+| POST                   | `offers/`                                   | business users                             |
+| GET                    | `offers/{id}/`                              | authenticated                              |
+| PATCH, DELETE          | `offers/{id}/`                              | creator of the offer                       |
+| GET                    | `offerdetails/{id}/`                        | authenticated                              |
+| GET                    | `orders/`                                   | authenticated (own orders only)            |
+| POST                   | `orders/`                                   | customers                                  |
+| PATCH                  | `orders/{id}/`                              | business user of the order (status only)   |
+| DELETE                 | `orders/{id}/`                              | admins (staff)                             |
+| GET                    | `order-count/{business_user_id}/`           | authenticated                              |
+| GET                    | `completed-order-count/{business_user_id}/` | authenticated                              |
+| GET                    | `reviews/`                                  | authenticated                              |
+| POST                   | `reviews/`                                  | customers, one review per business user    |
+| PATCH, DELETE          | `reviews/{id}/`                             | author of the review                       |
+| GET                    | `base-info/`                                | public                                     |
+
 ## Running the Tests
 
 ```bash
