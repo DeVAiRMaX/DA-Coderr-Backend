@@ -114,6 +114,33 @@ All endpoints are prefixed with `/api/`. Authentication uses a token
 | PATCH, DELETE          | `reviews/{id}/`                             | author of the review                       |
 | GET                    | `base-info/`                                | public                                     |
 
+## Special Behaviour
+
+- **Profile URL uses the user id:** in `profile/{user_id}/` the id is the id of
+  the user, not of the profile. Empty profile fields are returned as `''`, never `null`.
+- **Offers need exactly three details:** one `basic`, one `standard` and one
+  `premium` package. On PATCH every sent detail is identified by its
+  `offer_type` and keeps its id; only the sent fields are changed.
+- **Unlimited revisions:** `revisions = -1` means unlimited revisions
+  (this is how the frontend sends it).
+- **Offer list:** paginated with 6 offers per page (`?page=`, `?page_size=`),
+  filterable by `creator_id`, `min_price`, `max_delivery_time`, searchable via
+  `search` (title, description) and sortable via `ordering`
+  (`updated_at`, `min_price`). Empty query parameters are ignored.
+- **Prices** are returned as numbers (e.g. `100.0`), not as strings
+  (`COERCE_DECIMAL_TO_STRING = False`).
+- **Orders copy the package data** (title, price, features, ...) when they are
+  created, so later changes to an offer don't change existing orders.
+  Deleting an offer keeps its orders.
+- **Order status updates** only accept the field `status`
+  (`in_progress`, `completed`, `cancelled`). Any other field returns `400`.
+- **Reviews:** a customer can review every business user only once;
+  a second review returns `403`. Only `rating` (1–5) and `description` can be changed.
+- **File uploads** (profile pictures, offer images) are sent as
+  `multipart/form-data` and stored in `media/`. In development (`DEBUG = True`)
+  Django serves them under `/media/`.
+- **Orders can only be deleted by admins.** Create one with `createsuperuser`.
+
 ## Running the Tests
 
 ```bash
